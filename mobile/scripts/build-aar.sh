@@ -23,9 +23,12 @@ if ! command -v gomobile >/dev/null 2>&1; then
     go install golang.org/x/mobile/cmd/gobind@latest
 fi
 
-# `gomobile bind` resolves "golang.org/x/mobile/bind" against the package
-# graph of the target module. Make sure it is in go.sum / module graph.
-go get golang.org/x/mobile/bind || true
+# Make sure `golang.org/x/mobile` is in the module graph. The /bind package
+# only compiles for specific GOOS/GOARCH so we keep an importer file in
+# mobile/avmobile/tools.go behind a `tools` build tag.
+if ! grep -q 'golang.org/x/mobile' go.mod; then
+    go get golang.org/x/mobile@latest
+fi
 go mod tidy
 
 # gomobile init prepares the NDK-aware Go workspace. Idempotent.
