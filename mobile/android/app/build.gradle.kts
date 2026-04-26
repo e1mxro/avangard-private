@@ -62,8 +62,9 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // gomobile-built AAR with Avmobile package; produced by `gomobile bind`
-    // before the Android build runs (see tools/build-android.sh and CI).
-    implementation(files("libs/avmobile.aar"))
+    // before the Android build runs (see mobile/scripts/build-aar.sh and CI).
+    // Resolved through flatDir repo declared in settings.gradle.kts.
+    implementation(name = "avmobile", ext = "aar")
 
     // testing
     testImplementation("junit:junit:4.13.2")
