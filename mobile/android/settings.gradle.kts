@@ -6,12 +6,15 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
-    // PREFER_PROJECT lets the :app subproject add its own flatDir for the
-    // gomobile-built AAR while keeping google()/mavenCentral() the default.
-    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
+        flatDir {
+            // gomobile bind drops avmobile.aar here. Resolved as
+            // implementation(":avmobile@aar") in app/build.gradle.kts.
+            dirs("${rootDir}/app/libs")
+        }
     }
 }
 rootProject.name = "AvangardMobile"

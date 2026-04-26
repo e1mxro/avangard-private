@@ -4,12 +4,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.20"
 }
 
-repositories {
-    flatDir {
-        dirs("libs")
-    }
-}
-
 android {
     namespace = "com.avangard.mobile"
     compileSdk = 34
@@ -69,8 +63,8 @@ dependencies {
 
     // gomobile-built AAR with Avmobile package; produced by `gomobile bind`
     // before the Android build runs (see mobile/scripts/build-aar.sh and CI).
-    // Resolved through flatDir repo declared in settings.gradle.kts.
-    implementation(group = "", name = "avmobile", ext = "aar")
+    // Resolved through the flatDir repo declared in settings.gradle.kts.
+    implementation(":avmobile@aar")
 
     // testing
     testImplementation("junit:junit:4.13.2")
