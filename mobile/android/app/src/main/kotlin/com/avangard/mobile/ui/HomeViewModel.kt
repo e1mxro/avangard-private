@@ -10,7 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import avmobile.Avmobile
+import go.avmobile.Avmobile
 import com.avangard.mobile.AvangardForegroundService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -11,7 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import avmobile.Avmobile
+import go.avmobile.Avmobile
 
 /**
  * AvangardForegroundService keeps the AVANGARD client + SOCKS5 listener alive

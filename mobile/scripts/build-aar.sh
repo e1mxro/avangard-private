@@ -35,10 +35,11 @@ go mod tidy
 gomobile init || true
 
 echo "Building avmobile.aar..."
+# Without -javapkg, gomobile produces classes under `go.<pkgname>`. We use the
+# default so that the Kotlin import is `go.avmobile.Avmobile`.
 gomobile bind \
     -target=android \
     -androidapi 24 \
-    -javapkg avmobile \
     -o "$OUT_AAR" \
     ./mobile/avmobile
 
