@@ -1,0 +1,24 @@
+# Sample AVANGARD server configuration. Generate fresh keys with:
+#   avangard-server keygen --host <public.ip> --port 443 --decoy <decoy.domain> --out ./conf
+listen:
+  quic: ":443"
+  tcp:  ":443"
+
+decoy:
+  # SNI we accept as "AVANGARD client". Anything else is forwarded raw to
+  # `decoy.addr` — Reality-style.
+  domain: www.yandex.ru
+  addr:   www.yandex.ru:443
+
+tls:
+  cert_file: /etc/avangard/cert.pem
+  key_file:  /etc/avangard/key.pem
+
+auth:
+  # 32-byte X25519 server-static private key, base64 RawStd.
+  static_privkey_b64: ""    # filled by `keygen --out`
+  accepted_uuids:
+    - "00000000-0000-0000-0000-000000000000"
+
+logging:
+  level: info

@@ -1,0 +1,24 @@
+# Build artefacts
+/bin/
+/dist/
+*.exe
+
+# Local dev material
+/dev/
+*.pem
+*.key
+*.crt
+!examples/*.pem
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Coverage
+coverage.out
+*.test

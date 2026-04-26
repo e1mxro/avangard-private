@@ -1,0 +1,21 @@
+server:
+  uri: "avangard://<uuid>@<host>:443?sni=www.yandex.ru&pk=<pk_b64>&region=RU"
+  tofu: ""    # optional sha256 hex pin
+
+transport:
+  preferred: auto       # auto | quic | tcp
+  ports: [443, 8443, 2053, 2087, 2096]
+
+regionshield:
+  enabled: true
+  region:  RU
+  fallback_chain:
+    - yandex_cdn
+    - splitdpi
+    - gosuslugi_ws
+    - quic_camouflage
+    - dns_tunnel
+
+logging:
+  level: info
+  redact_sni: true
