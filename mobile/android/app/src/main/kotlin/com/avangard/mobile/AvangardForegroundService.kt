@@ -11,7 +11,9 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import go.avmobile.Avmobile
+// gomobile bind without -javapkg generates a top-level package named after the
+// Go package; for `package avmobile` the resulting Java class is `avmobile.Avmobile`.
+import avmobile.Avmobile
 
 /**
  * AvangardForegroundService keeps the AVANGARD client + SOCKS5 listener alive
