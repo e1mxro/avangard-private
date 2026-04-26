@@ -1,0 +1,39 @@
+[Unit]
+Description=AVANGARD tunnel server
+Documentation=https://github.com/e1mxro/avangard-private
+After=network-online.target nss-lookup.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=avangard
+Group=avangard
+WorkingDirectory=/var/lib/avangard
+ExecStart=/usr/local/bin/avangard-server run --config /etc/avangard/server.yaml
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/var/lib/avangard /var/log/avangard
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+# UDP receive buffer for QUIC (see quic-go wiki)
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
