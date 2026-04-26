@@ -64,7 +64,7 @@ dependencies {
     // gomobile-built AAR with Avmobile package; produced by `gomobile bind`
     // before the Android build runs (see mobile/scripts/build-aar.sh and CI).
     // Resolved through flatDir repo declared in settings.gradle.kts.
-    implementation(name = "avmobile", ext = "aar")
+    implementation(group = "", name = "avmobile", ext = "aar")
 
     // testing
     testImplementation("junit:junit:4.13.2")
