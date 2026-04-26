@@ -7,11 +7,6 @@ import (
 	"testing"
 )
 
-// pipePair implements two duplex pipes connected to each other.
-type pipePair struct {
-	a, b *bytePipe
-}
-
 type bytePipe struct {
 	mu   sync.Mutex
 	cond *sync.Cond
