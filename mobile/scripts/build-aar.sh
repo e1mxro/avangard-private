@@ -23,11 +23,13 @@ if ! command -v gomobile >/dev/null 2>&1; then
     go install golang.org/x/mobile/cmd/gobind@latest
 fi
 
-# gomobile init writes its workspace under $HOME/go-mobile by default.
-# Some Go versions require it explicitly, others (>=1.21) can skip it.
-if ! gomobile version 2>&1 | grep -q '+'; then
-    gomobile init || true
-fi
+# `gomobile bind` resolves "golang.org/x/mobile/bind" against the package
+# graph of the target module. Make sure it is in go.sum / module graph.
+go get golang.org/x/mobile/bind || true
+go mod tidy
+
+# gomobile init prepares the NDK-aware Go workspace. Idempotent.
+gomobile init || true
 
 echo "Building avmobile.aar..."
 gomobile bind \
