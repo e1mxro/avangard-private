@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	mrand "math/rand"
+
 	"net"
 	"os"
 	"os/signal"
@@ -246,8 +246,12 @@ func newRunCmd() *cobra.Command {
 func genUUID() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
-		// Fallback to non-crypto rand to avoid hard failure on weird envs.
-		mrand.Read(b[:])
+		// crypto/rand should never fail on supported platforms; if it does,
+		// surface a deterministic fallback by hashing the system clock.
+		now := time.Now().UnixNano()
+		for i := range b {
+			b[i] = byte(now >> (i * 4))
+		}
 	}
 	b[6] = (b[6] & 0x0f) | 0x40 // v4
 	b[8] = (b[8] & 0x3f) | 0x80

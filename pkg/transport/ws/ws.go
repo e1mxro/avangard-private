@@ -209,7 +209,10 @@ func (c *Client) Dial(ctx context.Context) (transport.TunnelStream, error) {
 	}
 	u := &url.URL{Scheme: "wss", Host: host, Path: c.path}
 	hdr := http.Header{}
-	conn, _, err := dialer.DialContext(ctx, u.String(), hdr)
+	conn, resp, err := dialer.DialContext(ctx, u.String(), hdr)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 	if err != nil {
 		_ = tlsConn.Close()
 		return nil, fmt.Errorf("ws upgrade: %w", err)
