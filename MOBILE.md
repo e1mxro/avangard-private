@@ -8,21 +8,36 @@ and exposed by the small wrapper package [`mobile/avmobile`](mobile/avmobile/avm
 
 | Platform | Phase | Branch | Output |
 |---|---|---|---|
-| Android | **v0.1 (current)** — single-screen, SOCKS5 only | `mobile/android` | `avangard-android-debug.apk` (CI artifact) |
-| Android | v0.2 (next) — VpnService + tun2socks | TBD | system-wide tunnel |
-| Android | v0.3 — profiles, subscription, per-app routing, themes | TBD | "Hiddify-grade" UI |
+| Android | v0.1 — SOCKS5 only | `mobile/android` | `avangard-android-debug.apk` (CI artifact) |
+| Android | v0.2 — VpnService + tun2socks (system-wide) | `mobile/android` | system-wide tunnel |
+| Android | **v0.3 (current)** — profiles, subscription, QR, per-app routing, themes | `mobile/android` | "Hiddify-grade" UI |
+| Android | v0.4 (planned) — stats, latency, always-on, signed release | TBD | release-signed APK |
 | iOS | v0.1 (planned) — Swift + NEPacketTunnelProvider | TBD | `.ipa` from macOS Actions runner |
 
-## Android v0.1 — install on your phone
+## Android v0.3 — features
+
+- **Multi-profile storage** — keep any number of `avangard://...` configurations; tap one to make it active. Profiles live in DataStore (`/data/data/com.avangard.mobile/...`).
+- **Subscription import** — paste a URL that returns a list of `avangard://` URIs (newline-separated, optionally base64-wrapped à la v2rayN). Bulk-imports new profiles, deduplicates by URI.
+- **QR scanner** — from the profile editor, tap the QR icon to scan an `avangard://` URI directly with the camera (ZXing-backed).
+- **Per-app routing** — Settings → Per-app routing. Three modes:
+    - *All apps* (default) — every app uses AVANGARD.
+    - *Only selected* — only the checked apps go through AVANGARD; everything else uses the direct connection (great for split-tunnel work setups).
+    - *Bypass selected* — every app goes through AVANGARD except the checked ones (e.g. banking apps that geo-fence).
+- **Themes** — System / Light / Dark / AMOLED (pure-black for OLED battery saving). Live-applied without restart.
+- **System VPN / SOCKS5** toggle — from the v0.2 baseline, kept for power users who want a local SOCKS5 instead of the full tun.
+
+## Android — install on your phone
 
 1. Open https://github.com/e1mxro/avangard-private/actions/workflows/android.yml
 2. Pick the latest **green** run on branch `mobile/android` (or `init` after merge).
 3. Download artifact `avangard-android-debug.zip`. Extract → `app-debug.apk`.
 4. Transfer the APK to your phone (USB / Telegram / cloud / `adb install`) and open it.
 5. Allow "install from unknown sources" if Android prompts.
-6. Open the app, paste your `avangard://...` URI, pick TCP or QUIC, press **Connect**.
-7. The app pins a notification: `SOCKS5 ready on 127.0.0.1:18964`.
-8. Configure apps to use that SOCKS5 — examples below.
+6. Open the app → **Profiles** tab → **Add profile** (or scan a QR via the camera button) → paste your `avangard://...` URI → Save.
+7. Switch to **Home** → press **Connect** → accept the system VPN consent dialog.
+8. The status bar key icon appears and the notification reads `System-wide VPN active`. Every app on the device now routes through AVANGARD.
+
+For SOCKS5-only mode (no VPN consent, per-app proxy configuration), flip the **Mode** switch on the Home screen to *SOCKS5 only* before connecting; the listener stays at `127.0.0.1:18964`.
 
 ### Configure apps to use the SOCKS5 proxy
 
