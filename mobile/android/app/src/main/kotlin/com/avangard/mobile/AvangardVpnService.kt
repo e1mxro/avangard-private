@@ -51,6 +51,14 @@ class AvangardVpnService : VpnService() {
         perAppMode: String,
         perAppPackages: List<String>,
     ) {
+        // Guard against duplicate START intents (rapid double-tap before the
+        // UI's 1s poll loop sees running=true; START_STICKY redelivery; etc.).
+        // Without this, Avmobile.start would throw "already running" and the
+        // catch block below would happily tear down the working tunnel.
+        if (tunInterface != null) {
+            Log.i(TAG, "start ignored: tunnel already active")
+            return
+        }
         ensureChannel()
         startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.notif_connecting)))
         try {

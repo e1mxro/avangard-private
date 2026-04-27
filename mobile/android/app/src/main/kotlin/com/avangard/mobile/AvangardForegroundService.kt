@@ -42,6 +42,13 @@ class AvangardForegroundService : Service() {
     }
 
     private fun start(uri: String, transport: String) {
+        // Guard against duplicate START intents (rapid double-tap, START_STICKY
+        // redelivery, etc.). Without this Avmobile.start would throw "already
+        // running" and the catch below would tear down a working tunnel.
+        if (Avmobile.isRunning()) {
+            Log.i(TAG, "start ignored: SOCKS5 tunnel already active")
+            return
+        }
         ensureChannel()
         val notification = buildNotification(getString(R.string.notif_connecting))
         startForeground(NOTIFICATION_ID, notification)

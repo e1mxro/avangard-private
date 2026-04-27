@@ -96,13 +96,21 @@ func Start(uriStr, listenAddr, transportName string) error {
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 
+	// "insecure" is a sentinel that means "skip cert verification", not a uTLS
+	// browser fingerprint. Pass it through to Fingerprint and the TCP transport
+	// would treat it as an unknown uTLS fingerprint and silently fall back to
+	// HelloRandomizedALPN — yielding a uTLS handshake the user never asked for.
+	fp := u.Fingerprint
+	if fp == "insecure" {
+		fp = ""
+	}
 	cfg := transport.ClientConfig{
 		Addr:               net.JoinHostPort(u.Host, fmt.Sprintf("%d", u.Port)),
 		UUID:               u.UUID,
 		SNI:                u.SNI,
 		ServerStaticPub:    u.ServerPub,
 		InsecureSkipVerify: u.TOFUHash != "" || u.Fingerprint == "insecure",
-		Fingerprint:        u.Fingerprint,
+		Fingerprint:        fp,
 	}
 	var d transport.Dialer
 	switch transportName {
