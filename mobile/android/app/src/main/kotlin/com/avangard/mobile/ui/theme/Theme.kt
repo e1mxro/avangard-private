@@ -10,6 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.avangard.mobile.data.ThemeMode
 
 private val DarkColors = darkColorScheme(
     primary = Color(0xFFB59CFF),
@@ -23,14 +24,30 @@ private val LightColors = lightColorScheme(
     tertiary = Color(0xFF7D5260),
 )
 
+private val AmoledColors = darkColorScheme(
+    primary = Color(0xFFB59CFF),
+    secondary = Color(0xFFCBC2DB),
+    tertiary = Color(0xFFEFB8C8),
+    background = Color.Black,
+    surface = Color.Black,
+    surfaceVariant = Color(0xFF101010),
+)
+
 @Composable
 fun AvangardTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    mode: ThemeMode = ThemeMode.SYSTEM,
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
+    val systemDark = isSystemInDarkTheme()
+    val darkTheme = when (mode) {
+        ThemeMode.SYSTEM -> systemDark
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK, ThemeMode.AMOLED -> true
+    }
     val ctx = LocalContext.current
     val colors = when {
+        mode == ThemeMode.AMOLED -> AmoledColors
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (darkTheme) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
         darkTheme -> DarkColors

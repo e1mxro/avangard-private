@@ -36,14 +36,21 @@ class AvangardVpnService : VpnService() {
             ACTION_START -> {
                 val uri = intent?.getStringExtra(EXTRA_URI).orEmpty()
                 val transport = intent?.getStringExtra(EXTRA_TRANSPORT) ?: "tcp"
-                start(uri, transport)
+                val perAppMode = intent?.getStringExtra(EXTRA_PER_APP_MODE) ?: PER_APP_MODE_ALL
+                val perAppPackages = intent?.getStringArrayExtra(EXTRA_PER_APP_PACKAGES)?.toList().orEmpty()
+                start(uri, transport, perAppMode, perAppPackages)
             }
             ACTION_STOP -> stop()
         }
         return START_STICKY
     }
 
-    private fun start(uri: String, transport: String) {
+    private fun start(
+        uri: String,
+        transport: String,
+        perAppMode: String,
+        perAppPackages: List<String>,
+    ) {
         ensureChannel()
         startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.notif_connecting)))
         try {
@@ -71,6 +78,11 @@ class AvangardVpnService : VpnService() {
             } catch (t: Throwable) {
                 Log.w(TAG, "addDisallowedApplication failed", t)
             }
+
+            // Apply user-configured per-app routing on top of the always-excluded
+            // self-package. "All apps" needs no extra calls; the other two modes
+            // delegate to addAllowedApplication / addDisallowedApplication.
+            applyPerAppRouting(builder, perAppMode, perAppPackages)
 
             val pfd = builder.establish()
                 ?: throw IllegalStateException("VpnService.Builder.establish() returned null")
@@ -116,6 +128,26 @@ class AvangardVpnService : VpnService() {
         // different VPN app takes over.
         stop()
         super.onRevoke()
+    }
+
+    private fun applyPerAppRouting(
+        builder: Builder,
+        mode: String,
+        packages: List<String>,
+    ) {
+        if (mode == PER_APP_MODE_ALL || packages.isEmpty()) return
+        val ours = packageName
+        for (pkg in packages) {
+            if (pkg == ours) continue
+            try {
+                when (mode) {
+                    PER_APP_MODE_ALLOW -> builder.addAllowedApplication(pkg)
+                    PER_APP_MODE_DISALLOW -> builder.addDisallowedApplication(pkg)
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "per-app routing skipped for $pkg ($mode)", t)
+            }
+        }
     }
 
     private fun ensureChannel() {
@@ -174,14 +206,27 @@ class AvangardVpnService : VpnService() {
         const val ACTION_STOP = "com.avangard.mobile.vpn.STOP"
         const val EXTRA_URI = "uri"
         const val EXTRA_TRANSPORT = "transport"
+        const val EXTRA_PER_APP_MODE = "per_app_mode"
+        const val EXTRA_PER_APP_PACKAGES = "per_app_packages"
+
+        const val PER_APP_MODE_ALL = "ALL"
+        const val PER_APP_MODE_ALLOW = "ALLOW"
+        const val PER_APP_MODE_DISALLOW = "DISALLOW"
 
         /** Build the start Intent — caller must call [VpnService.prepare] first. */
-        fun startIntent(ctx: Context, uri: String, transport: String): Intent =
-            Intent(ctx, AvangardVpnService::class.java).apply {
-                action = ACTION_START
-                putExtra(EXTRA_URI, uri)
-                putExtra(EXTRA_TRANSPORT, transport)
-            }
+        fun startIntent(
+            ctx: Context,
+            uri: String,
+            transport: String,
+            perAppMode: String = PER_APP_MODE_ALL,
+            perAppPackages: List<String> = emptyList(),
+        ): Intent = Intent(ctx, AvangardVpnService::class.java).apply {
+            action = ACTION_START
+            putExtra(EXTRA_URI, uri)
+            putExtra(EXTRA_TRANSPORT, transport)
+            putExtra(EXTRA_PER_APP_MODE, perAppMode)
+            putExtra(EXTRA_PER_APP_PACKAGES, perAppPackages.toTypedArray())
+        }
 
         fun stopIntent(ctx: Context): Intent =
             Intent(ctx, AvangardVpnService::class.java).apply {

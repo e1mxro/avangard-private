@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.20"
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -12,8 +13,8 @@ android {
         applicationId = "com.avangard.mobile"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0-alpha"
+        versionCode = 3
+        versionName = "0.3.0-alpha"
     }
 
     buildTypes {
@@ -59,7 +60,20 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
+    // Multi-screen navigation.
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // Persistent state.
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // JSON serialization for profile / settings storage.
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+    // Subscription URL fetching.
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // QR code scanning (camera-backed) — pulls in CameraX + zxing-core.
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     // gomobile-built AAR with Avmobile package; produced by `gomobile bind`
     // before the Android build runs (see mobile/scripts/build-aar.sh and CI).
