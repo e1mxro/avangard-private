@@ -52,6 +52,12 @@ class AvangardForegroundService : Service() {
         } catch (t: Throwable) {
             Log.e(TAG, "start failed", t)
             updateNotification(getString(R.string.notif_error, t.message ?: "unknown"))
+            // Don't leave a stuck error notification in the foreground — and
+            // since onStartCommand returns START_STICKY, also avoid the
+            // OS restarting us with intent=null and looping the empty-URI
+            // failure forever.
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
         }
     }
 

@@ -68,12 +68,23 @@ object SubscriptionImporter {
         // newlines / spaces / `:` characters.
         if (s.contains('\n') || s.contains(' ') || s.contains("://")) return s
         if (s.length < 8) return s
-        return try {
-            val flags = Base64.DEFAULT or Base64.URL_SAFE or Base64.NO_WRAP
-            String(Base64.decode(s, flags), Charsets.UTF_8)
-        } catch (_: Throwable) {
-            s
-        }
+        // Try standard base64 alphabet first (`+/`) — that's what v2rayN-style
+        // subscription generators emit. Fall back to URL-safe (`-_`) for the
+        // minority that emit URL-safe variants. NO_WRAP allows lines without
+        // trailing newlines; DEFAULT (=0) is the standard alphabet.
+        return decodeWith(s, Base64.DEFAULT or Base64.NO_WRAP)
+            ?: decodeWith(s, Base64.URL_SAFE or Base64.NO_WRAP)
+            ?: s
+    }
+
+    private fun decodeWith(s: String, flags: Int): String? = try {
+        val bytes = Base64.decode(s, flags)
+        val decoded = String(bytes, Charsets.UTF_8)
+        // Decode "succeeds" silently on garbage too; only accept results that
+        // look like the expected URI-list payload.
+        if (decoded.contains("avangard://")) decoded else null
+    } catch (_: Throwable) {
+        null
     }
 
     private fun guessTransport(uri: String): String {
