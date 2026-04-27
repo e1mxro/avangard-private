@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -44,8 +45,12 @@ func init() {
 	// unrecoverable errors, which by default invokes os.Exit and would tear
 	// down the entire host process (the Android app). Replace the global
 	// logger with a no-op zap logger that converts Fatal-level events into
-	// goroutine exits so we can recover and surface the error instead.
-	nop := zap.NewNop().WithOptions(zap.WithFatalHook(zapcore.WriteThenGoexit))
+	// panics, which our recover() in StartTun / StopTun can catch.
+	//
+	// NOTE: WriteThenGoexit is *not* caught by recover() (per the Go spec
+	// recover returns nil during Goexit unwinding) so it would silently
+	// kill the goroutine and hang the JNI bridge with an ANR. Use Panic.
+	nop := zap.NewNop().WithOptions(zap.WithFatalHook(zapcore.WriteThenPanic))
 	t2slog.SetLogger(nop)
 }
 
@@ -54,6 +59,11 @@ var (
 	running  bool
 	cancel   context.CancelFunc
 	listener net.Listener
+	// dialer is kept module-level so Stop() can close it. The TCP transport
+	// is stateless and does not implement io.Closer; the QUIC transport
+	// holds a long-lived UDP+TLS connection that must be torn down on Stop
+	// or it leaks until the 120s idle timeout fires.
+	dialer transport.Dialer
 )
 
 // Start parses a `avangard://...` URI, opens an AVANGARD tunnel using the
@@ -94,12 +104,12 @@ func Start(uriStr, listenAddr, transportName string) error {
 		InsecureSkipVerify: u.TOFUHash != "" || u.Fingerprint == "insecure",
 		Fingerprint:        u.Fingerprint,
 	}
-	var dialer transport.Dialer
+	var d transport.Dialer
 	switch transportName {
 	case "tcp":
-		dialer, err = tcptransport.NewClient(cfg)
+		d, err = tcptransport.NewClient(cfg)
 	case "quic":
-		dialer, err = quictransport.NewClient(ctx, cfg)
+		d, err = quictransport.NewClient(ctx, cfg)
 	default:
 		err = fmt.Errorf("unknown transport %q", transportName)
 	}
@@ -108,10 +118,13 @@ func Start(uriStr, listenAddr, transportName string) error {
 		return err
 	}
 
-	tc := tunnel.NewClient(dialer, u.UUID)
+	tc := tunnel.NewClient(d, u.UUID)
 	ln, lnErr := net.Listen("tcp", listenAddr)
 	if lnErr != nil {
 		cancelFn()
+		if closer, ok := d.(io.Closer); ok {
+			_ = closer.Close()
+		}
 		return fmt.Errorf("socks listen: %w", lnErr)
 	}
 	srv := socks5.New(tc, nil)
@@ -121,6 +134,7 @@ func Start(uriStr, listenAddr, transportName string) error {
 
 	cancel = cancelFn
 	listener = ln
+	dialer = d
 	running = true
 	return nil
 }
@@ -139,9 +153,13 @@ func Stop() error {
 	if listener != nil {
 		_ = listener.Close()
 	}
+	if closer, ok := dialer.(io.Closer); ok {
+		_ = closer.Close()
+	}
 	running = false
 	cancel = nil
 	listener = nil
+	dialer = nil
 	return nil
 }
 

@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 // gomobile bind without -javapkg generates a top-level package named after the
 // Go package; for `package avmobile` the resulting Java class is `avmobile.Avmobile`.
 import avmobile.Avmobile
@@ -133,7 +134,9 @@ class AvangardForegroundService : Service() {
                 putExtra(EXTRA_URI, uri)
                 putExtra(EXTRA_TRANSPORT, transport)
             }
-            ctx.startForegroundService(i)
+            // ContextCompat handles the API 24/25 fallback to startService()
+            // — Context.startForegroundService is API 26+.
+            ContextCompat.startForegroundService(ctx, i)
         }
 
         fun stop(ctx: Context) {

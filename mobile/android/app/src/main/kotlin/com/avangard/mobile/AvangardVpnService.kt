@@ -69,19 +69,24 @@ class AvangardVpnService : VpnService() {
                 .addDnsServer(DNS_PRIMARY)
                 .addDnsServer(DNS_SECONDARY)
 
-            // Exclude our own app from the VPN so the upstream AVANGARD
-            // dial doesn't loop back through the tun we just installed.
-            // addDisallowedApplication is documented from API 21+ on
-            // VpnService; wrap defensively in case of vendor weirdness.
-            try {
-                builder.addDisallowedApplication(packageName)
-            } catch (t: Throwable) {
-                Log.w(TAG, "addDisallowedApplication failed", t)
+            // Exclude our own app from the VPN so the upstream AVANGARD dial
+            // doesn't loop back through the tun we just installed.
+            //
+            // VpnService.Builder forbids mixing addAllowedApplication with
+            // addDisallowedApplication on the same builder — the second call
+            // throws UnsupportedOperationException. So we only self-exclude
+            // when we're going to use the disallow list (modes ALL and
+            // DISALLOW). In ALLOW mode the self-package is implicitly
+            // excluded because it's not in the user's allow list, and
+            // applyPerAppRouting() also skips it defensively.
+            if (perAppMode != PER_APP_MODE_ALLOW) {
+                try {
+                    builder.addDisallowedApplication(packageName)
+                } catch (t: Throwable) {
+                    Log.w(TAG, "addDisallowedApplication failed", t)
+                }
             }
 
-            // Apply user-configured per-app routing on top of the always-excluded
-            // self-package. "All apps" needs no extra calls; the other two modes
-            // delegate to addAllowedApplication / addDisallowedApplication.
             applyPerAppRouting(builder, perAppMode, perAppPackages)
 
             val pfd = builder.establish()
