@@ -13,7 +13,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -90,9 +89,12 @@ class MainActivity : ComponentActivity() {
                 this, event.profile.uri, event.profile.transport,
             )
             is AppEvent.Stop -> when (event.tunnelMode) {
-                TunnelMode.SYSTEM_VPN -> ContextCompat.startForegroundService(
-                    this, AvangardVpnService.stopIntent(this),
-                )
+                // The STOP intent must use startService, NOT startForegroundService:
+                // VpnService.stop() never calls startForeground() (it only stops the
+                // foreground state), so on Android 8+ a startForegroundService here
+                // races a ForegroundServiceDidNotStartInTimeException if the OS had
+                // already killed the service or if onRevoke() raced our tap.
+                TunnelMode.SYSTEM_VPN -> startService(AvangardVpnService.stopIntent(this))
                 TunnelMode.SOCKS5_ONLY -> AvangardForegroundService.stop(this)
             }
         }

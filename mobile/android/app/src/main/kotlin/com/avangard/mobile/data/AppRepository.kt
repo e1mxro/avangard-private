@@ -38,35 +38,52 @@ class AppRepository private constructor(private val app: Application) {
     suspend fun snapshotProfiles(): List<Profile> = profiles.first()
     suspend fun snapshotSettings(): AppSettings = settings.first()
 
+    // All mutators read inside DataStore.edit so the read-modify-write is
+    // a single transaction. Reading via snapshotXxx() and writing back
+    // in a separate edit { } would race concurrent mutators (e.g. theme +
+    // per-app fired from the UI in quick succession) and lose updates.
+
     suspend fun saveProfile(profile: Profile) {
-        val current = snapshotProfiles().toMutableList()
-        val idx = current.indexOfFirst { it.id == profile.id }
-        if (idx >= 0) current[idx] = profile else current.add(profile)
-        writeProfiles(current)
+        app.prefs.edit { prefs ->
+            val current = prefs[KEY_PROFILES_JSON]?.let { decodeProfiles(it) }.orEmpty().toMutableList()
+            val idx = current.indexOfFirst { it.id == profile.id }
+            if (idx >= 0) current[idx] = profile else current.add(profile)
+            prefs[KEY_PROFILES_JSON] = json.encodeToString(ListSerializer(Profile.serializer()), current)
+        }
     }
 
     suspend fun saveProfilesBatch(toAdd: List<Profile>): Int {
         if (toAdd.isEmpty()) return 0
-        val current = snapshotProfiles().toMutableList()
-        val existingUris = current.map { it.uri }.toHashSet()
         var added = 0
-        for (p in toAdd) {
-            if (p.uri.isBlank() || p.uri in existingUris) continue
-            current.add(p)
-            existingUris += p.uri
-            added++
+        app.prefs.edit { prefs ->
+            val current = prefs[KEY_PROFILES_JSON]?.let { decodeProfiles(it) }.orEmpty().toMutableList()
+            val existingUris = current.map { it.uri }.toHashSet()
+            added = 0
+            for (p in toAdd) {
+                if (p.uri.isBlank() || p.uri in existingUris) continue
+                current.add(p)
+                existingUris += p.uri
+                added++
+            }
+            if (added > 0) {
+                prefs[KEY_PROFILES_JSON] = json.encodeToString(ListSerializer(Profile.serializer()), current)
+            }
         }
-        writeProfiles(current)
         return added
     }
 
     suspend fun deleteProfile(id: String) {
-        val current = snapshotProfiles().filterNot { it.id == id }
-        writeProfiles(current)
-        // If we just deleted the active profile, fall back to first or null.
-        val s = snapshotSettings()
-        if (s.activeProfileId == id) {
-            updateSettings { it.copy(activeProfileId = current.firstOrNull()?.id) }
+        app.prefs.edit { prefs ->
+            val current = (prefs[KEY_PROFILES_JSON]?.let { decodeProfiles(it) }.orEmpty())
+                .filterNot { it.id == id }
+            prefs[KEY_PROFILES_JSON] = json.encodeToString(ListSerializer(Profile.serializer()), current)
+
+            // If we just deleted the active profile, fall back to first or null.
+            val s = prefs[KEY_SETTINGS_JSON]?.let { decodeSettings(it) } ?: AppSettings()
+            if (s.activeProfileId == id) {
+                val updated = s.copy(activeProfileId = current.firstOrNull()?.id)
+                prefs[KEY_SETTINGS_JSON] = json.encodeToString(AppSettings.serializer(), updated)
+            }
         }
     }
 
@@ -75,13 +92,10 @@ class AppRepository private constructor(private val app: Application) {
     }
 
     suspend fun updateSettings(transform: (AppSettings) -> AppSettings) {
-        val updated = transform(snapshotSettings())
-        app.prefs.edit { it[KEY_SETTINGS_JSON] = json.encodeToString(AppSettings.serializer(), updated) }
-    }
-
-    private suspend fun writeProfiles(list: List<Profile>) {
-        app.prefs.edit {
-            it[KEY_PROFILES_JSON] = json.encodeToString(ListSerializer(Profile.serializer()), list)
+        app.prefs.edit { prefs ->
+            val current = prefs[KEY_SETTINGS_JSON]?.let { decodeSettings(it) } ?: AppSettings()
+            val updated = transform(current)
+            prefs[KEY_SETTINGS_JSON] = json.encodeToString(AppSettings.serializer(), updated)
         }
     }
 
