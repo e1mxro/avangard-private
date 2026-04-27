@@ -83,11 +83,13 @@ class AvangardVpnService : VpnService() {
             // VpnService.Builder forbids mixing addAllowedApplication with
             // addDisallowedApplication on the same builder — the second call
             // throws UnsupportedOperationException. So we only self-exclude
-            // when we're going to use the disallow list (modes ALL and
-            // DISALLOW). In ALLOW mode the self-package is implicitly
-            // excluded because it's not in the user's allow list, and
-            // applyPerAppRouting() also skips it defensively.
-            if (perAppMode != PER_APP_MODE_ALLOW) {
+            // when we're NOT about to call addAllowedApplication: that's modes
+            // ALL and DISALLOW unconditionally, plus ALLOW with an empty package
+            // list (which would otherwise leave the builder with no per-app
+            // restrictions at all, causing Android to route every app — including
+            // ours — through the tun and create a feedback loop).
+            val willCallAllow = perAppMode == PER_APP_MODE_ALLOW && perAppPackages.isNotEmpty()
+            if (!willCallAllow) {
                 try {
                     builder.addDisallowedApplication(packageName)
                 } catch (t: Throwable) {
@@ -115,6 +117,10 @@ class AvangardVpnService : VpnService() {
             try { Avmobile.stop() } catch (_: Throwable) {}
             try { tunInterface?.close() } catch (_: Throwable) {}
             tunInterface = null
+            // Drop foreground state too: otherwise on some OEM skins the error
+            // notification lingers, and START_STICKY redelivery (intent=null,
+            // empty URI) loops the failure forever.
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
     }
