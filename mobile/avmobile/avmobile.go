@@ -6,6 +6,8 @@
 //	Start(uri, listenAddr, transport string) error
 //	Stop() error
 //	IsRunning() bool
+//	StartTun(tunFd, mtu int, socksAddr string) error  // v0.2 system-wide
+//	StopTun() error
 //	Version() string
 //
 // All public functions take and return only types that gomobile supports
@@ -18,18 +20,34 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 
 	"github.com/avangard/avangard/pkg/socks5"
+	"github.com/avangard/avangard/pkg/transport"
 	quictransport "github.com/avangard/avangard/pkg/transport/quic"
 	tcptransport "github.com/avangard/avangard/pkg/transport/tcp"
 	"github.com/avangard/avangard/pkg/tunnel"
 	"github.com/avangard/avangard/pkg/uri"
-	"github.com/avangard/avangard/pkg/transport"
+
+	"github.com/xjasonlyu/tun2socks/v2/engine"
+	t2slog "github.com/xjasonlyu/tun2socks/v2/log"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // Version is bumped per release of the mobile binding.
-const Version = "0.1.0-alpha"
+const Version = "0.2.0-alpha"
+
+func init() {
+	// xjasonlyu/tun2socks's engine.Start / engine.Stop call log.Fatalf on
+	// unrecoverable errors, which by default invokes os.Exit and would tear
+	// down the entire host process (the Android app). Replace the global
+	// logger with a no-op zap logger that converts Fatal-level events into
+	// goroutine exits so we can recover and surface the error instead.
+	nop := zap.NewNop().WithOptions(zap.WithFatalHook(zapcore.WriteThenGoexit))
+	t2slog.SetLogger(nop)
+}
 
 var (
 	mu       sync.Mutex
@@ -142,4 +160,91 @@ func ListenAddr() string {
 		return ""
 	}
 	return listener.Addr().String()
+}
+
+// --- v0.2 system-wide VPN (Android VpnService / iOS NEPacketTunnelProvider) ---
+//
+// The mobile platform creates a tun-style file descriptor that delivers raw
+// IP packets from the OS. We use xjasonlyu/tun2socks to build a userspace
+// network stack on top of that fd and forward each TCP/UDP flow to the
+// SOCKS5 listener that Start() exposes on 127.0.0.1:18964.
+
+var (
+	tunMu      sync.Mutex
+	tunRunning bool
+)
+
+// StartTun connects a tun-style file descriptor (as produced by Android's
+// VpnService.Builder.establish() or iOS's NEPacketTunnelFlow) to the SOCKS5
+// proxy address. Once running, every IP packet written by the OS into the
+// tun fd is parsed by an internal netstack and forwarded to socksAddr.
+//
+// tunFd: file descriptor handed over by the platform. Caller is responsible
+//        for keeping it open until StopTun() returns.
+// mtu:   maximum transmission unit. Pass 0 to use the default (1500).
+// socksAddr: address of the SOCKS5 proxy started by Start(). Pass "" for
+//        the default 127.0.0.1:18964.
+func StartTun(tunFd, mtu int, socksAddr string) error {
+	tunMu.Lock()
+	defer tunMu.Unlock()
+	if tunRunning {
+		return errors.New("avmobile: tun already running, call StopTun first")
+	}
+	if tunFd <= 0 {
+		return errors.New("avmobile: invalid tun fd")
+	}
+	if mtu <= 0 {
+		mtu = 1500
+	}
+	if socksAddr == "" {
+		socksAddr = "127.0.0.1:18964"
+	}
+
+	key := &engine.Key{
+		Device:   "fd://" + strconv.Itoa(tunFd),
+		Proxy:    "socks5://" + socksAddr,
+		MTU:      mtu,
+		LogLevel: "warning",
+	}
+	engine.Insert(key)
+
+	var startErr error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				startErr = fmt.Errorf("tun2socks start: %v", r)
+			}
+		}()
+		engine.Start()
+	}()
+	if startErr != nil {
+		return startErr
+	}
+
+	tunRunning = true
+	return nil
+}
+
+// StopTun shuts down the tun2socks netstack started by StartTun. Safe to
+// call when no tun is active. Does not close the underlying fd; the
+// platform is expected to manage its lifetime.
+func StopTun() error {
+	tunMu.Lock()
+	defer tunMu.Unlock()
+	if !tunRunning {
+		return nil
+	}
+	func() {
+		defer func() { _ = recover() }()
+		engine.Stop()
+	}()
+	tunRunning = false
+	return nil
+}
+
+// IsTunRunning reports whether the system-wide VPN packet pump is active.
+func IsTunRunning() bool {
+	tunMu.Lock()
+	defer tunMu.Unlock()
+	return tunRunning
 }

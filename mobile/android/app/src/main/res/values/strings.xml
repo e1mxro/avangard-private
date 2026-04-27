@@ -3,8 +3,11 @@
     <string name="app_name">AVANGARD</string>
     <string name="channel_name">AVANGARD tunnel</string>
     <string name="channel_desc">AVANGARD foreground tunnel notifications</string>
+    <string name="channel_vpn_name">AVANGARD VPN</string>
+    <string name="channel_vpn_desc">System-wide VPN status notifications</string>
     <string name="notif_connecting">Connecting…</string>
     <string name="notif_connected">SOCKS5 ready on %1$s</string>
+    <string name="notif_vpn_active">System-wide VPN active</string>
     <string name="notif_error">Error: %1$s</string>
     <string name="notif_action_stop">Stop</string>
 </resources>

@@ -34,6 +34,7 @@
             </intent-filter>
         </activity>
 
+        <!-- v0.1 SOCKS5-only mode: per-app proxy, no VPN consent prompt. -->
         <service
             android:name=".AvangardForegroundService"
             android:exported="false"
@@ -42,6 +43,21 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="local-socks5-proxy"
                 tools:ignore="MissingClass" />
+        </service>
+
+        <!-- v0.2 system-wide VPN: captures ALL device IP traffic via VpnService. -->
+        <service
+            android:name=".AvangardVpnService"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="vpn-tunnel"
+                tools:ignore="MissingClass" />
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
         </service>
 
     </application>
