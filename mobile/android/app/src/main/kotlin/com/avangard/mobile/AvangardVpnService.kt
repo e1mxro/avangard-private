@@ -97,7 +97,21 @@ class AvangardVpnService : VpnService() {
                 }
             }
 
-            applyPerAppRouting(builder, perAppMode, perAppPackages)
+            val allowAdded = applyPerAppRouting(builder, perAppMode, perAppPackages)
+
+            // ALLOW mode safety net: if every addAllowedApplication call ended
+            // up failing (e.g. all selected packages were uninstalled or the
+            // user only selected the AVANGARD app itself, which we always
+            // skip), the builder has no per-app restrictions and Android
+            // would route every app — including ours — through the tun and
+            // create a feedback loop. Abort with a clear error instead.
+            if (perAppMode == PER_APP_MODE_ALLOW && allowAdded == 0) {
+                throw IllegalStateException(
+                    "Per-app ALLOW mode has no valid apps selected (all chosen " +
+                        "packages were missing or filtered). Pick at least one " +
+                        "installed app or switch to All apps mode.",
+                )
+            }
 
             val pfd = builder.establish()
                 ?: throw IllegalStateException("VpnService.Builder.establish() returned null")
@@ -149,24 +163,35 @@ class AvangardVpnService : VpnService() {
         super.onRevoke()
     }
 
+    /**
+     * Applies the per-app allow/disallow rules to [builder] and returns the
+     * number of packages successfully added via [Builder.addAllowedApplication].
+     * Callers in ALLOW mode use the count to detect the all-failed case (no
+     * per-app restrictions → wide-open routing loop).
+     */
     private fun applyPerAppRouting(
         builder: Builder,
         mode: String,
         packages: List<String>,
-    ) {
-        if (mode == PER_APP_MODE_ALL || packages.isEmpty()) return
+    ): Int {
+        if (mode == PER_APP_MODE_ALL || packages.isEmpty()) return 0
         val ours = packageName
+        var added = 0
         for (pkg in packages) {
             if (pkg == ours) continue
             try {
                 when (mode) {
-                    PER_APP_MODE_ALLOW -> builder.addAllowedApplication(pkg)
+                    PER_APP_MODE_ALLOW -> {
+                        builder.addAllowedApplication(pkg)
+                        added++
+                    }
                     PER_APP_MODE_DISALLOW -> builder.addDisallowedApplication(pkg)
                 }
             } catch (t: Throwable) {
                 Log.w(TAG, "per-app routing skipped for $pkg ($mode)", t)
             }
         }
+        return added
     }
 
     private fun ensureChannel() {
